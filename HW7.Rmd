@@ -1,0 +1,112 @@
+---
+title: "HW7"
+author: "Shero_Dawson_HW3"
+date: "2024-02-22"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Packages Required
+
+```{r}
+
+pacman::p_load(tidyverse, hoopR, cowplot, here)
+
+```
+# Data
+
+```{r}
+
+shots18 <- read.csv(here("data","shots_1819.csv"))
+
+players <- read.csv(here("data","nba_players.csv")) %>% 
+  select(PERSON_ID, DISPLAY_FIRST_LAST)
+
+```
+
+
+# HOMEWORK 
+
+Here are the questions for your homework. You should answer these in an RMarkdown document, knit to **PDF** and submit both your **.Rmd** and **PDF** on Canvas. We're going to start by identifying Mr. Analytics for the 2018-19 NBA season.
+
+<mark>**HW Q1**</mark>: First, read in the shot chart data, save it as `shots18`, and then **modify** the code below to add two variables: the percent of shots taken from 3-pt range, and then the *mean distance* on 2-pt shots. (1 pt)
+
+```{r player_sum_hw, eval = FALSE}
+
+players18 <- shots18 %>% 
+  
+  # Change shot location units to feet (rather than tenths of a foot), 
+  # and re-create new precise shot distance variable
+  mutate(LOC_X = LOC_X/10,
+         LOC_Y = LOC_Y/10,
+         SHOT_DISTANCE = sqrt(LOC_X^2 + LOC_Y^2)) %>%
+
+  mutate(pts = case_when(SHOT_TYPE == "3PT Field Goal" ~ 3, # New variable for 2 vs. 3 pt shot
+                         TRUE ~ 2)) %>% 
+  group_by(PLAYER_NAME, TEAM_NAME) %>% 
+  
+  #Create a bunch of new variables
+  summarize(FGA = n(), # Count rows to get FGA
+            FGM = sum(SHOT_MADE_FLAG), # Sum um 0/1 SHOT_MADE_FLAG to get FGM
+            
+            # Do a "Count If" equivalent to get number of 2 pt and 3pt FGA
+            FGA_2pt = sum(pts[pts==2])/2,
+            FGA_3pt = sum(pts[pts==3])/3,
+            
+            # Multiply those "count ifs" by SHOT_MADE_FLAG to get number of each type of FGM
+            FGM_2pt = sum(pts[pts==2]*SHOT_MADE_FLAG[pts==2])/2,
+            FGM_3pt = sum(pts[pts==3]*SHOT_MADE_FLAG[pts==3])/3,
+            
+            #Add your two new variables here
+            ) %>%
+  
+  ungroup()
+
+```
+
+<mark>**HW Q2**</mark>: Create a scatterplot of these two new variables for all players with >500 total shot attempts, with 3-pt percentage on the x-axis and 2-pt distance on the y-axis. Instead of points, plot player names.
+
+Give the plot a title and clear axis labels. (2 pts)
+
+<mark>**HW Q3**</mark>: To whom would you award the title of Mr. Analytics for the 2018-19 NBA Season? Justify your answer in 1-3 sentences. (1 pt)
+
+<mark>**HW Q4**</mark>: Create a shot chart for your awardee. Is this plot consistent with what you thought you knew about the player above? And what is his favorite type of shot(s)? Answer in 1-3 sentences. (2 pts)
+
+NOTE: In the document you submit to me, don't *show* the long code you have to use to set up the court plot. To do this, simply use the `include = FALSE` option in the chunk with that code. DO, however, show the other code you use to create the shot chart.
+
+
+<mark>**HW Q5**</mark>: Obviously Mr. Analytics isn't a real award, and it's likely the player you identified wasn't even in discussion for something like Most Valuable Player (MVP). Why not? Give at least 2 reasons why a Mr. Analytics (not necessarily the one you identified) might not actually generate *value* for his team? (1 pt)
+
+<mark>**HW Q6**</mark>: Using `shots18` (NOT the data grouped by player above), calculate the overall league average 2-pt and 3-pt FG% for 2018-19. Print your results. No interpretation is needed for this question.
+
+HINT: The `SHOT_MADE_FLAG` variable may be useful here (.5 pt).
+
+<mark>**HW Q7**</mark>: Using `players18`, and among players with >50 each of 2-pt and 3-pt shot attempts, print the 6 players with the *greatest* and *smallest* differences between their FG% for 2- and 3-pt shots. 
+
+Print their names, number of shots of each type, field goal percentages of each type, and the difference between them. 
+
+Describe what you see in about 2-3 sentences. Does anyone shoot better from 3-pt range than 2-pt range? When there's a particularly large difference, is this driven by the player being way above or below average on 3-pointers, 2-pointers, both, or a combination? (1.5 pts)
+
+NOTE: You may need to create (hint: mutate) several new variables for this question!
+
+HINT: Your minimum and maximum values for the difference in shot percentages (2pt minus 3 pt) should be -0.1283 and 0.4697.
+
+General organization and clarity of the report you turn in is worth 1 pt.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
