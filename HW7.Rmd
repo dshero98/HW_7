@@ -34,36 +34,27 @@ Here are the questions for your homework. You should answer these in an RMarkdow
 
 <mark>**HW Q1**</mark>: First, read in the shot chart data, save it as `shots18`, and then **modify** the code below to add two variables: the percent of shots taken from 3-pt range, and then the *mean distance* on 2-pt shots. (1 pt)
 
-```{r player_sum_hw, eval = FALSE}
+## Data Showing Different Shots Per Player in The 2018-19 Season
+
+
+```{r}
 
 players18 <- shots18 %>% 
-  
-  # Change shot location units to feet (rather than tenths of a foot), 
-  # and re-create new precise shot distance variable
   mutate(LOC_X = LOC_X/10,
          LOC_Y = LOC_Y/10,
          SHOT_DISTANCE = sqrt(LOC_X^2 + LOC_Y^2)) %>%
-
-  mutate(pts = case_when(SHOT_TYPE == "3PT Field Goal" ~ 3, # New variable for 2 vs. 3 pt shot
+  mutate(pts = case_when(SHOT_TYPE == "3PT Field Goal" ~ 3, 
                          TRUE ~ 2)) %>% 
-  group_by(PLAYER_NAME, TEAM_NAME) %>% 
-  
-  #Create a bunch of new variables
-  summarize(FGA = n(), # Count rows to get FGA
-            FGM = sum(SHOT_MADE_FLAG), # Sum um 0/1 SHOT_MADE_FLAG to get FGM
-            
-            # Do a "Count If" equivalent to get number of 2 pt and 3pt FGA
+  group_by(PLAYER_NAME, TEAM_NAME) %>%
+  summarize(FGA = n(),
+            FGM = sum(SHOT_MADE_FLAG),
             FGA_2pt = sum(pts[pts==2])/2,
             FGA_3pt = sum(pts[pts==3])/3,
-            
-            # Multiply those "count ifs" by SHOT_MADE_FLAG to get number of each type of FGM
             FGM_2pt = sum(pts[pts==2]*SHOT_MADE_FLAG[pts==2])/2,
             FGM_3pt = sum(pts[pts==3]*SHOT_MADE_FLAG[pts==3])/3,
-            
-            #Add your two new variables here
-            ) %>%
-  
-  ungroup()
+            FGP_2pt = ((FGM_2pt/FGA_2pt) * 100),
+            FGP_3pt = ((FGM_3pt/FGA_3pt) * 100),
+            MEAN_DISTANCE_2pt = mean(SHOT_DISTANCE <= 24), .groups = "drop")
 
 ```
 
@@ -71,24 +62,244 @@ players18 <- shots18 %>%
 
 Give the plot a title and clear axis labels. (2 pts)
 
+## ScatterPlot of Players 3-Point Percentage and Mean Distance of 2pt 
+
+```{r}
+
+players18 %>%
+  filter(FGA > 500) %>%
+  ggplot(aes(x = FGP_3pt, y = MEAN_DISTANCE_2pt)) +
+  geom_text(aes(label = PLAYER_NAME))
+
+```
+
+
+
 <mark>**HW Q3**</mark>: To whom would you award the title of Mr. Analytics for the 2018-19 NBA Season? Justify your answer in 1-3 sentences. (1 pt)
 
+##### The title of Mr. Analytics would go to Willie Cauley-Stein. This would be the case because he has the highest 3pt percentage as well having the highest mean distance for 2pt.  
+
 <mark>**HW Q4**</mark>: Create a shot chart for your awardee. Is this plot consistent with what you thought you knew about the player above? And what is his favorite type of shot(s)? Answer in 1-3 sentences. (2 pts)
+
+```{r, include=FALSE}
+court_themes = list(
+  light = list(
+    court = '#fffcf2',
+    lines = '#999999',
+    text = '#222222',
+    made = '#00bfc4',
+    missed = '#f8766d',
+    hex_border_size = 0.3,
+    hex_border_color = "#cccccc"
+  ),
+  dark = list(
+    court = '#000004',
+    lines = '#999999',
+    text = '#f0f0f0',
+    made = '#00bfc4',
+    missed = '#f8766d',
+    hex_border_size = 0,
+    hex_border_color = "#000000"
+  )
+)
+
+circle_points = function(center = c(0, 0), radius = 1, npoints = 360) {
+  angles = seq(0, 2 * pi, length.out = npoints)
+  return(tibble(x = center[1] + radius * cos(angles),
+                    y = center[2] + radius * sin(angles)))
+}
+
+width = 50
+height = 94 / 2
+key_height = 19
+inner_key_width = 12
+outer_key_width = 16
+backboard_width = 6
+backboard_offset = 4
+neck_length = 0.5
+hoop_radius = 0.75
+hoop_center_y = backboard_offset + neck_length + hoop_radius
+three_point_radius = 23.75
+three_point_side_radius = 22
+three_point_side_height = 14
+
+plot_court = function(court_theme = court_themes$dark, use_short_three = FALSE) {
+  if (use_short_three) {
+    three_point_radius = 22
+    three_point_side_height = 0
+  }
+
+  court_points = tibble(
+    x = c(width / 2, width / 2, -width / 2, -width / 2, width / 2),
+    y = c(height, 0, 0, height, height),
+    desc = "perimeter"
+  )
+
+  court_points = bind_rows(court_points , tibble(
+    x = c(outer_key_width / 2, outer_key_width / 2, -outer_key_width / 2, -outer_key_width / 2),
+    y = c(0, key_height, key_height, 0),
+    desc = "outer_key"
+  ))
+
+  court_points = bind_rows(court_points , tibble(
+    x = c(-backboard_width / 2, backboard_width / 2),
+    y = c(backboard_offset, backboard_offset),
+    desc = "backboard"
+  ))
+
+  court_points = bind_rows(court_points , tibble(
+    x = c(0, 0), y = c(backboard_offset, backboard_offset + neck_length), desc = "neck"
+  ))
+
+  foul_circle = circle_points(center = c(0, key_height), radius = inner_key_width / 2)
+
+  foul_circle_top = filter(foul_circle, y > key_height) %>%
+    mutate(desc = "foul_circle_top")
+
+  foul_circle_bottom = filter(foul_circle, y < key_height) %>%
+    mutate(
+      angle = atan((y - key_height) / x) * 180 / pi,
+      angle_group = floor((angle - 5.625) / 11.25),
+      desc = paste0("foul_circle_bottom_", angle_group)
+    ) %>%
+    filter(angle_group %% 2 == 0) %>%
+    select(x, y, desc)
+
+  hoop = circle_points(center = c(0, hoop_center_y), radius = hoop_radius) %>%
+    mutate(desc = "hoop")
+
+  restricted = circle_points(center = c(0, hoop_center_y), radius = 4) %>%
+    filter(y >= hoop_center_y) %>%
+    mutate(desc = "restricted")
+
+  three_point_circle = circle_points(center = c(0, hoop_center_y), radius = three_point_radius) %>%
+    filter(y >= three_point_side_height, y >= hoop_center_y)
+
+  three_point_line = tibble(
+    x = c(three_point_side_radius, three_point_side_radius, three_point_circle$x, -three_point_side_radius, -three_point_side_radius),
+    y = c(0, three_point_side_height, three_point_circle$y, three_point_side_height, 0),
+    desc = "three_point_line"
+  )
+
+  court_points = bind_rows(
+    court_points,
+    foul_circle_top,
+    foul_circle_bottom,
+    hoop,
+    restricted,
+    three_point_line
+  )
+
+  court_points <<- court_points
+
+  ggplot() +
+    geom_path(
+      data = court_points,
+      aes(x = x, y = y, group = desc),
+      color = court_theme$lines
+    ) +
+    coord_fixed(ylim = c(0, 35), xlim = c(-25, 25)) +
+    theme_minimal(base_size = 16) +
+    theme(
+      text = element_text(color = court_theme$text),
+      plot.background = element_rect(fill = court_theme$court, color = court_theme$court),
+      panel.background = element_rect(fill = court_theme$court, color = court_theme$court),
+      panel.grid = element_blank(),
+      panel.border = element_blank(),
+      axis.text = element_blank(),
+      axis.title = element_blank(),
+      axis.ticks = element_blank(),
+      legend.background = element_rect(fill = court_theme$court, color = court_theme$court),
+      legend.margin = margin(-1, 0, 0, 0, unit = "lines"),
+      legend.position = "bottom",
+      legend.key = element_blank(),
+      legend.text = element_text(size = rel(0.7))
+    )
+}
+
+```
+
+
+## Shots By Willie Cauley-Stein
+
+```{r}
+shots18 %>% 
+  filter(PLAYER_NAME == "Willie Cauley-Stein") %>% 
+  ggplot(aes(x = LOC_X, y = LOC_Y, color = EVENT_TYPE)) +
+  geom_point() +
+  labs(X = "", y = "", title = "Regular Season Shots by Willie Cauley-Stein, 2018-19") +
+  theme(legend.title = element_blank())
+
+```
+
+#### This is not consistent with what I thought the players shotting habits were. I thought since both values were high, he would be more of a perimeter shooter, but from the shot chart it looks like his favorite shot comes within the key. The reason his 3pt percentage is so high is that he is efficent with the 3pt shots that he takes. 
 
 NOTE: In the document you submit to me, don't *show* the long code you have to use to set up the court plot. To do this, simply use the `include = FALSE` option in the chunk with that code. DO, however, show the other code you use to create the shot chart.
 
 
 <mark>**HW Q5**</mark>: Obviously Mr. Analytics isn't a real award, and it's likely the player you identified wasn't even in discussion for something like Most Valuable Player (MVP). Why not? Give at least 2 reasons why a Mr. Analytics (not necessarily the one you identified) might not actually generate *value* for his team? (1 pt)
 
+#### The first reason that Mr. Analytics might not generate value for his team is that it doesn't show the time that he was in the game. Meaning that alot of these shots could of been when the starter of the opp team aren't in either from winning/losing by so much points. Another reason why is that these shots could of came from "garbage time" where the game is already decided so it becomes more of a shot around.
+
+
 <mark>**HW Q6**</mark>: Using `shots18` (NOT the data grouped by player above), calculate the overall league average 2-pt and 3-pt FG% for 2018-19. Print your results. No interpretation is needed for this question.
+
+## The League AVG in 2pt and 3pt Percentages
+
+```{r}
+league_AVG <- shots18 %>% 
+  mutate(LOC_X = LOC_X/10,
+         LOC_Y = LOC_Y/10,
+         SHOT_DISTANCE = sqrt(LOC_X^2 + LOC_Y^2)) %>%
+  mutate(pts = case_when(SHOT_TYPE == "3PT Field Goal" ~ 3, 
+                         TRUE ~ 2)) %>% 
+  group_by(TEAM_NAME) %>%
+  summarize(FGA = n(),
+            FGM = sum(SHOT_MADE_FLAG),
+            FGA_2pt = sum(pts[pts==2])/2,
+            FGA_3pt = sum(pts[pts==3])/3,
+            FGM_2pt = sum(pts[pts==2]*SHOT_MADE_FLAG[pts==2])/2,
+            FGM_3pt = sum(pts[pts==3]*SHOT_MADE_FLAG[pts==3])/3,
+            FGP_2pt = ((FGM_2pt/FGA_2pt) * 100),
+            FGP_3pt = ((FGM_3pt/FGA_3pt) * 100))
+
+fg_2pt_avg <- mean(league_AVG$FGP_2pt)
+fg_3pt_avg <- mean(league_AVG$FGP_3pt)
+
+
+print(fg_2pt_avg)
+print(fg_3pt_avg)
+```
+
 
 HINT: The `SHOT_MADE_FLAG` variable may be useful here (.5 pt).
 
 <mark>**HW Q7**</mark>: Using `players18`, and among players with >50 each of 2-pt and 3-pt shot attempts, print the 6 players with the *greatest* and *smallest* differences between their FG% for 2- and 3-pt shots. 
 
+## Looking at the Top 6 Players with the Greatest and Smallest differences in 2 and 3pt Shots 
+
+```{r}
+
+Players_Diff <- players18 %>% 
+  filter(FGA_3pt > 50, FGA_2pt > 50) %>% 
+  mutate(FG_Diff = FGP_2pt - FGP_3pt) %>% 
+  select(PLAYER_NAME, FGA_2pt, FGA_3pt, FGP_2pt, FGP_3pt, FG_Diff)
+
+print(Players_Diff %>%
+        arrange(FG_Diff) %>%
+        head(6))
+
+print(Players_Diff %>%
+        arrange(-FG_Diff) %>%
+        head(6))
+```
+
+
 Print their names, number of shots of each type, field goal percentages of each type, and the difference between them. 
 
 Describe what you see in about 2-3 sentences. Does anyone shoot better from 3-pt range than 2-pt range? When there's a particularly large difference, is this driven by the player being way above or below average on 3-pointers, 2-pointers, both, or a combination? (1.5 pts)
+
+#### Most of the people on this list are not what you would call household names besides Giannis and Seth Curry. Landry Shamet has taken alsmost 3x more shots from 3pt range than the 2pt range. This is shown with the FG_Diff being so high (negatively). This is driven by the fact also that Shamet has a higher shooting percentage from the 3pt line than within the arch.
 
 NOTE: You may need to create (hint: mutate) several new variables for this question!
 
